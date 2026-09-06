@@ -67,7 +67,7 @@ python scripts/delete_safe.py
 
 - 📖 **Master doc**: [SKILL.md](SKILL.md) — full spec (6 stages / 11 pitfalls / red lines / script usage)
 - 📜 **License**: [LICENSE](LICENSE) (MIT)
-- 🇨🇳 **SkillHub Chinese edition**: search "**C盘清理大师**" on `skillhub.cn` (skillId 187879)
+- 🇨🇳 **SkillHub Chinese edition**: skillId 187879 ("C Drive Cleanup Master") — also published as the Chinese sibling under user `user_839f3063`
 - ✍️ **Author**: [@jamesting-eng](https://github.com/jamesting-eng)
 
 ## Suitable / Not suitable

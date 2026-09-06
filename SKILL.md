@@ -2,7 +2,7 @@
 name: c-drive-cleanup-master
 slug: c-drive-cleanup-master
 displayName: C-Drive Cleanup Master
-version: "1.0.0"
+version: "1.0.1"
 summary: Safe Windows C: drive cleanup — measurement/scan/delete workflow with built-in red lines and a pitfalls checklist
 license: MIT
 tags:

@@ -47,7 +47,8 @@ def main():
                 total += s
 
     # 2) Per-user temp / edge cache / pip cache
-    users = os.path.join(os.environ.get("SystemDrive", "C:"), "Users")
+    sysdrive = os.environ.get("SystemDrive", "C:").rstrip("\\")
+    users = sysdrive + "\\Users"
     if os.path.isdir(users):
         for u in os.listdir(users):
             base = os.path.join(users, u)

@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Scan common C-drive system/software junk and move it to Recycle Bin.
-Default dry-run; use --confirm to actually move files.
+Scan common C-drive system/software junk and route each item to the
+appropriate deletion method based on the safety gate:
+
+  * computer-housekeeper-class system junk -> restart-delete (optional,
+    needs --allow-restart-delete and admin rights)
+  * skill deep-governance targets           -> Recycle Bin
+
+Default dry-run; use --confirm to actually act.
 Identifies junctions (0xA0000003) and skips them to avoid cross-disk miscounts.
-All deletions go through Recycle Bin; locked items are reported, not forced.
 """
 import argparse
 import os
@@ -12,21 +17,27 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from delete_to_recyclebin import move_to_recycle_bin, du
+from restart_delete import schedule_deletes, is_admin
 
 
-# (name, mode, paths)
-# mode = 'whole'  -> move the directory itself
-# mode = 'contents' -> move entries inside but keep the root directory
+# (name, mode, method, paths)
+# mode  = 'whole'    -> move/delete the directory itself
+#       = 'contents' -> move/delete entries inside but keep the root directory
+# method = 'recycle'        -> must go through Recycle Bin (deep governance)
+#        = 'restart_delete' -> system-managed junk that OS recreates (optional)
 TARGETS = [
-    ("Windows Event Logs", "contents", [r"C:\Windows\System32\winevt\Logs"]),
-    ("User Temp", "contents", [os.path.expanduser(r"~\AppData\Local\Temp")]),
-    ("Recent Items", "whole", [os.path.expanduser(r"~\AppData\Roaming\Microsoft\Windows\Recent")]),
-    ("Windows Temp", "contents", [r"C:\Windows\Temp"]),
-    ("Edge/IE Cache", "whole", [os.path.expanduser(r"~\AppData\Local\Microsoft\Windows\INetCache")]),
-    ("ThumbCache", "whole", [os.path.expanduser(r"~\AppData\Local\Microsoft\Windows\Explorer")]),
-    ("Notifications", "whole", [os.path.expanduser(r"~\AppData\Local\Microsoft\Windows\Notifications")]),
-    ("Windows Logs", "contents", [r"C:\Windows\Logs"]),
-    ("Prefetch", "contents", [r"C:\Windows\Prefetch"]),
+    # --- computer-housekeeper-class system junk (safe for restart-delete) ---
+    ("Windows Event Logs", "contents", "restart_delete", [r"C:\Windows\System32\winevt\Logs"]),
+    ("Windows Logs", "contents", "restart_delete", [r"C:\Windows\Logs"]),
+    ("Prefetch", "contents", "restart_delete", [r"C:\Windows\Prefetch"]),
+
+    # --- skill deep-governance targets (must go through Recycle Bin) ---
+    ("User Temp", "contents", "recycle", [os.path.expanduser(r"~\AppData\Local\Temp")]),
+    ("Recent Items", "whole", "recycle", [os.path.expanduser(r"~\AppData\Roaming\Microsoft\Windows\Recent")]),
+    ("Windows Temp", "contents", "recycle", [r"C:\Windows\Temp"]),
+    ("Edge/IE Cache", "whole", "recycle", [os.path.expanduser(r"~\AppData\Local\Microsoft\Windows\INetCache")]),
+    ("ThumbCache", "whole", "recycle", [os.path.expanduser(r"~\AppData\Local\Microsoft\Windows\Explorer")]),
+    ("Notifications", "whole", "recycle", [os.path.expanduser(r"~\AppData\Local\Microsoft\Windows\Notifications")]),
 ]
 
 PROTECTED_ROOTS = {
@@ -60,14 +71,10 @@ def is_safe_path(path):
     return True, ""
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Scan and move C-drive system junk to Recycle Bin")
-    parser.add_argument("--confirm", action="store_true", help="actually move files to Recycle Bin")
-    args = parser.parse_args()
-
+def collect_plan():
     total_size = 0
     plan = []
-    for name, mode, paths in TARGETS:
+    for name, mode, method, paths in TARGETS:
         for p in paths:
             safe, reason = is_safe_path(p)
             if not safe:
@@ -81,7 +88,7 @@ def main():
                     continue
                 items = [p]
                 total_size += sz
-                print(f"[PLAN] {name}: {p} = {sz/1024**2:.2f} MB (whole dir)")
+                print(f"[PLAN] {name}: {p} = {sz/1024**2:.2f} MB (whole dir, {method})")
             else:
                 try:
                     entries = os.listdir(p)
@@ -102,28 +109,52 @@ def main():
                     print(f"[SKIP] {name}: {p} (no movable contents)")
                     continue
                 total_size += sz
-                print(f"[PLAN] {name}: {p} -> {len(items)} entries = {sz/1024**2:.2f} MB (contents only)")
-            plan.append((name, p, mode, items, sz))
+                print(f"[PLAN] {name}: {p} -> {len(items)} entries = {sz/1024**2:.2f} MB (contents only, {method})")
+            plan.append((name, p, mode, method, items, sz))
+    return plan, total_size
 
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Scan and clean C-drive system junk via Recycle Bin or restart-delete")
+    parser.add_argument("--confirm", action="store_true",
+                        help="actually act; default is dry-run")
+    parser.add_argument("--allow-restart-delete", action="store_true",
+                        help="allow restart-delete for system-managed junk (needs admin)")
+    args = parser.parse_args()
+
+    plan, total_size = collect_plan()
     print(f"\nTotal planned: {total_size/1024**2:.2f} MB ({total_size/1024**3:.3f} GB)")
 
+    recycle_items = [(n, it, s) for n, _, _, m, its, s in plan for it in its if m == "recycle"]
+    restart_items = [(n, it, s) for n, _, _, m, its, s in plan for it in its if m == "restart_delete"]
+
+    if restart_items:
+        print(f"\n[SAFETY GATE] {len(restart_items)} item(s) are system-managed junk eligible for restart-delete.")
+        if not args.allow_restart_delete:
+            print("              Pass --allow-restart-delete to schedule them for next reboot.")
+        elif not is_admin():
+            print("[FAIL] --allow-restart-delete requires admin rights.")
+            sys.exit(1)
+
     if not args.confirm:
-        print("\nDRY-RUN: use --confirm to send to Recycle Bin.")
+        print("\nDRY-RUN: use --confirm to execute.")
         return
 
     if not plan:
         print("Nothing to clean.")
         return
 
-    print("\nMoving to Recycle Bin...")
-    moved = 0
-    failed = []
-    for name, root_path, mode, items, sz in plan:
-        for item in items:
+    # Execute Recycle Bin items
+    if recycle_items:
+        print("\nMoving to Recycle Bin...")
+        moved = 0
+        failed = []
+        for name, item, sz in recycle_items:
             try:
                 ok, err = move_to_recycle_bin(item)
                 if ok:
-                    moved += du(item) if os.path.exists(item) else sz / len(items)
+                    moved += du(item) if os.path.exists(item) else sz
                     print(f"[MOVED] {name}: {item}")
                 else:
                     failed.append((name, item, err))
@@ -131,14 +162,22 @@ def main():
             except Exception as e:
                 failed.append((name, item, str(e)))
                 print(f"[FAIL]  {name}: {item} -> {e}")
+        print(f"\nRecycle Bin moved estimate: {moved/1024**2:.2f} MB")
+        if failed:
+            print(f"Recycle Bin failures: {len(failed)}")
+            for name, item, err in failed:
+                print(f"  - {name}: {item} -> {err}")
 
-    print(f"\nMoved estimate: {moved/1024**2:.2f} MB")
-    if failed:
-        print(f"Failed: {len(failed)} items")
-        for name, item, err in failed:
-            print(f"  - {name}: {item} -> {err}")
-    else:
-        print("No failures.")
+    # Execute restart-delete items
+    if restart_items and args.allow_restart_delete:
+        print("\nScheduling restart-delete...")
+        paths = [item for _, item, _ in restart_items]
+        ok, err = schedule_deletes(paths)
+        if ok:
+            total = sum(s for _, _, s in restart_items)
+            print(f"[SCHEDULED] {len(paths)} item(s) for deletion at next reboot ({total/1024**2:.2f} MB).")
+        else:
+            print(f"[FAIL] restart-delete scheduling failed: {err}")
 
 
 if __name__ == "__main__":

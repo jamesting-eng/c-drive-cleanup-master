@@ -3,7 +3,7 @@
 > A safe Windows C: drive cleanup workflow — **measure / scan / delete** with **red lines** and an **11-item pitfalls checklist**.
 
 ![License: MIT](https://img.shields.io/badge/license-MIT-yellow)
-![Version](https://img.shields.io/badge/version-1.3.0-blue)
+![Version](https://img.shields.io/badge/version-1.4.0-blue)
 ![Stages](https://img.shields.io/badge/stages-6%2B-orange)
 ![Pitfalls](https://img.shields.io/badge/pitfalls-15-red)
 

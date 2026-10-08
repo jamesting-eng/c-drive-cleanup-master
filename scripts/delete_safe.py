@@ -16,24 +16,30 @@ def norm(p):
     return os.path.abspath(p).lower().replace("/", "\\")
 
 
+PER_USER_SUBS = [
+    "appdata\\local\\temp",
+    "appdata\\local\\microsoft\\edge\\user data\\default\\cache",
+    "appdata\\local\\microsoft\\edge\\user data\\default\\code cache",
+    "appdata\\local\\pip\\cache",
+]
+
+
 def is_allowed(path):
     n = norm(path)
     # whole-dir safe roots
     for pre in SAFE_DIR_PREFIXES:
         if n == pre or n.startswith(pre + "\\"):
             return True
-    # per-user safe subdirs
-    if n.startswith(r"c:\users\\"):
-        for sub in [
-            r"\appdata\local\temp",
-            r"\appdata\local\microsoft\edge\user data\default\cache",
-            r"\appdata\local\microsoft\edge\user data\default\code cache",
-            r"\appdata\local\pip\cache",
-        ]:
-            if n == r"c:\users\\" + sub or n.startswith(r"c:\users\\" + sub + "\\"):
-                return True
+    # per-user safe subdirs: c:\users\<user>\<sub>  (v1.2.1 bugfix)
+    if n.startswith("c:\\users\\"):
+        rest = n[len("c:\\users\\"):]
+        if "\\" in rest:
+            _user, tail = rest.split("\\", 1)
+            for sub in PER_USER_SUBS:
+                if tail == sub or tail.startswith(sub + "\\"):
+                    return True
     # ProgramData junk files only (never QQPCMgr, never whole dirs)
-    if n.startswith(r"c:\programdata\\") and "qqpcmgr" not in n:
+    if n.startswith("c:\\programdata\\") and "qqpcmgr" not in n:
         if os.path.isfile(path) and n.endswith(JUNK_EXT):
             return True
     return False

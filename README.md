@@ -3,9 +3,9 @@
 > A safe Windows C: drive cleanup workflow — **measure / scan / delete** with **red lines** and an **11-item pitfalls checklist**.
 
 ![License: MIT](https://img.shields.io/badge/license-MIT-yellow)
-![Version](https://img.shields.io/badge/version-1.2.0-blue)
-![Stages](https://img.shields.io/badge/stages-6-orange)
-![Pitfalls](https://img.shields.io/badge/pitfalls-11-red)
+![Version](https://img.shields.io/badge/version-1.3.0-blue)
+![Stages](https://img.shields.io/badge/stages-6%2B-orange)
+![Pitfalls](https://img.shields.io/badge/pitfalls-15-red)
 
 ## Why this exists
 
@@ -16,10 +16,11 @@ This skill encodes "what not to touch" and "how to touch what you can" as a **re
 ## Features
 
 - 🚦 **Red lines first** — Desktop / Downloads / Documents / system directories / `.workbuddy` are NEVER touched
-- 🪤 **11 pitfalls** — each with a full "hit -> evidence -> fix" chain
-- 🧰 **6-stage pipeline** — measure -> scan -> grade -> backup-align -> delete-via-recycle -> verify
+- 🪤 **15 pitfalls** — each with a full "hit -> evidence -> fix" chain
+- 🧰 **6+ stage pipeline** — measure -> scan -> grade -> backup-align -> delete-via-recycle -> verify, plus a dedicated system-cache recycle-bin stage
 - 💬 **WeChat cleanup sub-module** — 4 scripts: backup redundancy detection / md5 content dedup / safe recycle execution
 - ↩️ **Fully reversible** — every delete lands in the Windows Recycle Bin, recoverable on misclick
+- 🛡️ **Recycle-bin-first policy** — v1.3.0+: every file goes to the Recycle Bin first and you empty it manually; direct permanent deletion is strictly forbidden (no `rm -rf`, no `del /S /Q`)
 - 🌐 **Dual-publish** — GitHub (English, this repo) + SkillHub (Chinese, skillId 187879)
 
 ## 30-second quickstart
@@ -40,9 +41,15 @@ python scripts/wechat_dedup_recycle.py      # execute via recycle (careful!)
 
 # 5) Generic target delete (careful!)
 python scripts/delete_safe.py
+
+# 6) Send any file / directory to the Recycle Bin first (v1.3.0 unified entry)
+python scripts/delete_to_recyclebin.py <path> --confirm
+
+# 7) System cache / log cleanup -> Recycle Bin first (dry-run by default)
+python scripts/clean_system_junk.py --confirm
 ```
 
-> ⚠️ Before any write operation, read [SKILL.md §0 Red Lines](SKILL.md). All scripts are **pure Python stdlib** — no `pip install` required.
+> ⚠️ Before any write operation, read [SKILL.md §0 Red Lines](SKILL.md). All scripts are **pure Python stdlib** — no `pip install` required. Every deletion goes to the Recycle Bin; you empty it manually.
 
 ## Workflow
 
@@ -53,7 +60,7 @@ python scripts/delete_safe.py
                                                    _recycle
 ```
 
-## 11 pitfalls (top picks)
+## 15 pitfalls (top picks)
 
 | # | Pitfall | One-liner |
 |---|---|---|
@@ -61,7 +68,9 @@ python scripts/delete_safe.py
 | 6 | Windows has one Recycle Bin per volume | Clearing C: != clearing E: |
 | 8 | Don't blindly clean `WinSxS` | `StartComponentCleanup` removes replaced components only; core OS files are off-limits |
 | 5 | Parent-dir mtime doesn't reflect subtree activity | Check **child-dir** second-level mtime for liveness |
-| ... | The other 7 are in [SKILL.md §4](SKILL.md) | |
+| 15 | System-locked files cannot be force-deleted | Event logs / Prefetch / CBS stay locked by SYSTEM; Recycle-Bin-first or skip, never `del` |
+| 13 | Scan double-counts junction targets | `C:\WorkBuddy` etc. are junctions; exclude `reparse tag 0xA0000003` |
+| ... | The other 10 are in [SKILL.md §4](SKILL.md) | |
 
 ## Docs & License
 

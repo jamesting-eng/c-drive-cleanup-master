@@ -1,0 +1,25 @@
+{
+  "html_lang": "zh",
+  "title": "C盘清理 · 扫描报告",
+  "subtitle": "生成时间 __GEN__ · 本次为只读扫描，未删除任何文件",
+  "card_total": "可回收垃圾总量",
+  "card_cats": "有内容的分类数",
+  "card_err": "无法读取的文件（已跳过）",
+  "th_idx": "#",
+  "th_path": "路径",
+  "th_size": "大小",
+  "th_share": "占比",
+  "pd_label": "C:\\ProgramData 下的垃圾（.dmp/.tmp/.log）",
+  "pd_more": "（另有 %d 个 .dmp/.tmp/.log 文件）",
+  "warn_title": "有 __N__ 个文件无法读取，已被跳过",
+  "warn_body": "系统锁定的文件无法读取属正常现象，扫描结果依然有效，无需担心。",
+  "hint_map": {
+    "2": "文件已不存在（可能已被清理）。",
+    "3": "路径未找到。",
+    "5": "权限不足，需要管理员身份。",
+    "32": "文件正被其他程序占用。",
+    "124": "操作超时（文件过大）。",
+    "206": "文件名过长。"
+  },
+  "foot": "本报告仅统计<b>文件系统垃圾</b>。WinSxS 请运行 <code>Dism.exe /Online /Cleanup-Image /AnalyzeComponentStore</code>；卷影副本请运行 <code>vssadmin list shadowstorage</code>。杀毒软件保护的路径（如 QQPCMgr 的 *.db）已自动排除。<br>删除是独立的一步：<code>delete_safe.py --targets targets.json</code>（默认模拟运行，确认后加 <code>--confirm</code>）。"
+}

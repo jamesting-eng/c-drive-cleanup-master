@@ -2,10 +2,17 @@
 """WeChat directory analyzer (read-only).
 
 Usage:
-    python -S scripts/wechat_analyze.py --root <path-to-WeChat-Files>
+    python -S scripts/wechat_analyze.py                    # auto-detect root
+    python -S scripts/wechat_analyze.py --root <path>      # explicit root
 
 Prints a JSON classification of each account under the root: per-category
 bytes + file counts.  All paths are resolved from --root, never hard-coded.
+
+Root auto-detection tries (in order):
+    %USERPROFILE%\\Documents\\WeChat Files      (classic WeChat 3.x)
+    %USERPROFILE%\\Documents\\xwechat_files    (WeChat 4.x)
+If detection fails, pass --root explicitly (in WeChat: Settings -> Files
+Management shows the current storage path).
 
 Categories (by directory name under each <account>):
     BackupFiles          - WeChat backup archives (may contain many redundant copies)
@@ -20,8 +27,13 @@ Categories (by directory name under each <account>):
 The script never deletes anything.  Use the produced JSON to decide what to
 target with wechat_dedup_plan.py (for File) or wechat_backup_inspect.py
 (for BackupFiles).
+
+Large accounts can hold 30-80 GB; a progress heartbeat is printed to stderr
+so the scan never looks frozen (stdout stays clean JSON).
 """
 import os, sys, json, argparse
+
+from _cli_utils import Progress, friendly_error, error_code
 
 CATEGORIES = [
     "BackupFiles",
@@ -37,30 +49,70 @@ CATEGORIES = [
 
 PROTECT = {"Msg"}
 
+AUTO_DETECT_CANDIDATES = [
+    os.path.expanduser(r"~\Documents\WeChat Files"),
+    os.path.expanduser(r"~\Documents\xwechat_files"),
+    os.path.expanduser(r"~\Documents\WeChat Files (WPS Sync)"),
+]
+
+
+def detect_root():
+    """Return (root, candidates_tried). A valid root has at least one
+    account-like subdirectory containing WeChat category folders."""
+    tried = []
+    for cand in AUTO_DETECT_CANDIDATES:
+        tried.append(cand)
+        if os.path.isdir(cand) and os.listdir(cand):
+            return cand, tried
+    return None, tried
+
 
 def walk_size(d):
     t = c = 0
+    prog = Progress(os.path.basename(d) or d)
+    errors = []
     for dp, _, fs in os.walk(d):
         for f in fs:
+            fp = os.path.join(dp, f)
             try:
-                t += os.path.getsize(os.path.join(dp, f))
+                sz = os.path.getsize(fp)
+                t += sz
                 c += 1
-            except OSError:
-                pass
+                prog.tick(sz)
+            except OSError as e:
+                errors.append(e)
+    prog.done()
+    if errors:
+        try:
+            sys.stderr.write("[hint] %d file(s) unreadable (first: %s)\n"
+                             % (len(errors), friendly_error(errors[0])))
+        except Exception:
+            pass
     return t, c
 
 
 def main():
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--root", required=True, help="WeChat Files root directory")
+    p.add_argument("--root", required=False, default=None,
+                   help="WeChat Files root directory (default: auto-detect)")
     p.add_argument("--top", type=int, default=20,
                    help="show top N largest files under FileStorage/File (0=off)")
     args = p.parse_args()
 
-    root = os.path.abspath(args.root)
-    if not os.path.isdir(root):
-        sys.exit("ERROR: root not found: " + root)
+    if args.root:
+        root = os.path.abspath(args.root)
+        if not os.path.isdir(root):
+            sys.exit("ERROR: root not found: %s\n"
+                     "Hint: in WeChat open Settings -> Files Management to see "
+                     "the current storage path, then pass it via --root." % root)
+    else:
+        root, tried = detect_root()
+        if not root:
+            sys.exit("ERROR: could not auto-detect a WeChat Files directory.\n"
+                     "Tried:\n  " + "\n  ".join(tried) +
+                     "\nHint: in WeChat open Settings -> Files Management to see "
+                     "the current storage path, then pass it via --root.")
 
     accounts = {}
     for name in sorted(os.listdir(root)):

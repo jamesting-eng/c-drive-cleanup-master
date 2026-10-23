@@ -1,0 +1,25 @@
+{
+  "html_lang": "en",
+  "title": "C-Drive Cleanup — Scan Report",
+  "subtitle": "generated __GEN__ &middot; read-only scan, nothing was deleted",
+  "card_total": "scanable junk found",
+  "card_cats": "categories with content",
+  "card_err": "unreadable files (skipped)",
+  "th_idx": "#",
+  "th_path": "Path",
+  "th_size": "Size",
+  "th_share": "Share",
+  "pd_label": "C:\\ProgramData (.dmp/.tmp/.log junk)",
+  "pd_more": " (+%d more .dmp/.tmp/.log files)",
+  "warn_title": "__N__ file(s) could not be read and were skipped",
+  "warn_body": "This is normal for locked system files. The scan result is still valid — nothing is wrong.",
+  "hint_map": {
+    "2": "File no longer exists (already cleaned).",
+    "3": "Path not found.",
+    "5": "Permission denied — needs admin.",
+    "32": "File is in use by another program.",
+    "124": "Operation timed out (large file).",
+    "206": "Filename too long."
+  },
+  "foot": "This report lists <b>filesystem junk only</b>. For WinSxS run <code>Dism.exe /Online /Cleanup-Image /AnalyzeComponentStore</code>; for Volume Shadow Copy run <code>vssadmin list shadowstorage</code>. Antivirus-protected paths (e.g. QQPCMgr *.db) are excluded automatically.<br>Deletion is a separate explicit step: <code>delete_safe.py --targets targets.json</code> (dry-run by default, add <code>--confirm</code> after user review)."
+}

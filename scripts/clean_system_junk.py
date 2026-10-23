@@ -93,7 +93,9 @@ def collect_plan():
                 try:
                     entries = os.listdir(p)
                 except Exception as e:
+                    from _cli_utils import friendly_error
                     print(f"[SKIP] {name}: {p} (cannot list: {e})")
+                    print(f"       hint: {friendly_error(e)}")
                     continue
                 if not entries:
                     print(f"[SKIP] {name}: {p} (empty)")
@@ -164,9 +166,14 @@ def main():
                 print(f"[FAIL]  {name}: {item} -> {e}")
         print(f"\nRecycle Bin moved estimate: {moved/1024**2:.2f} MB")
         if failed:
+            from _cli_utils import friendly_error
             print(f"Recycle Bin failures: {len(failed)}")
+            print("NOTE: SHFileOperationW error codes are unreliable; items may "
+                  "still have reached the Recycle Bin. Verify with "
+                  "os.path.exists before retrying.")
             for name, item, err in failed:
                 print(f"  - {name}: {item} -> {err}")
+                print(f"    hint: {friendly_error(OSError(err)) if err.isdigit() else err}")
 
     # Execute restart-delete items
     if restart_items and args.allow_restart_delete:

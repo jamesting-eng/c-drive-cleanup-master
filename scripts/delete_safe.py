@@ -1,5 +1,7 @@
 import os, sys, json, shutil, argparse
 
+from _cli_utils import friendly_error
+
 # ---- Allowlist (safe to delete). Everything else is rejected. ----
 SAFE_DIR_PREFIXES = [
     r"c:\windows\temp",
@@ -8,6 +10,8 @@ SAFE_DIR_PREFIXES = [
     r"c:\windows\softwaredistribution\download",
     r"c:\windows\system32\codecache",
     r"c:\programdata\microsoft\windows\wer",
+    # Delivery Optimization cache (DoSvc, NetworkService-owned, re-downloadable)
+    r"c:\windows\serviceprofiles\networkservice\appdata\local\microsoft\windows\deliveryoptimization\cache",
 ]
 JUNK_EXT = (".dmp", ".tmp", ".log")
 
@@ -71,22 +75,29 @@ def schedule_reboot_delete(path):
 
 def delete_one(path, confirm):
     if not is_allowed(path):
-        return (path, "SKIPPED", "not in allowlist")
+        return (path, "SKIPPED", "not in allowlist",
+                "This path is not on the safety allowlist, so it was not "
+                "touched. If you really need it cleaned, add it explicitly "
+                "after manual review.")
     if not os.path.exists(path) and not os.path.islink(path):
-        return (path, "SKIPPED", "not found")
+        return (path, "SKIPPED", "not found", "Already gone. Nothing to do.")
     if not confirm:
-        return (path, "DRYRUN", "would delete")
+        return (path, "DRYRUN", "would delete",
+                "Dry-run only. Re-run with --confirm after you review "
+                "this report.")
     try:
         if os.path.islink(path) or os.path.isfile(path):
             os.remove(path)
         else:
             shutil.rmtree(path)
-        return (path, "DELETED", "")
+        return (path, "DELETED", "", "")
     except (PermissionError, OSError) as e:
+        hint = friendly_error(e)
         # locked -> try queue reboot delete
         if schedule_reboot_delete(path):
-            return (path, "QUEUED_REBOOT", str(e))
-        return (path, "LOCKED", str(e))
+            return (path, "QUEUED_REBOOT", str(e),
+                    hint + " This item was queued for deletion at next reboot.")
+        return (path, "LOCKED", str(e), hint)
 
 
 def main():
@@ -112,7 +123,8 @@ def main():
         "deleted": deleted,
         "queued_reboot": queued,
         "skipped_or_locked": skipped,
-        "details": [{"path": r[0], "status": r[1], "info": r[2]} for r in results],
+        "details": [{"path": r[0], "status": r[1], "info": r[2],
+                     "hint": r[3]} for r in results],
     }, ensure_ascii=False))
 
 
